@@ -209,12 +209,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Verify installation
-python -c "import docling, langchain, chromadb; print('Dependencies installed successfully')"
+python -c "import langchain, chromadb; print('Dependencies installed successfully')"
 ```
 
 ### Step 3: Environment Configuration
 ```bash
-# Copy environment template
+# Copy environment template (if exists)
 cp .env.example .env
 
 # Edit configuration (see Environment Variables section below)
@@ -234,108 +234,117 @@ ollama list
 
 ### Step 5: Database Initialization
 ```bash
-# Initialize knowledge base
-python src/initialize_db.py
-
-# Verify database setup
-python src/verify_setup.py
-```
-
-### Environment Variables (.env configuration)
-```bash
-# Database Configuration
-DATABASE_URL=sqlite:///./data/knowledge_base.db
-VECTOR_DB_PATH=./data/vector_db
-PROCESSED_DOCS_PATH=./data/processed
-
-# Model Configuration
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-PRIMARY_LLM=llama3.2:3b-instruct-q4_0
-FALLBACK_LLM=phi3:mini
-OLLAMA_BASE_URL=http://localhost:11434
-
-# Processing Configuration
-MAX_CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-MAX_CONCURRENT_PROCESSES=2
-BATCH_SIZE=5
-
-# Agent Configuration
-SUPERVISOR_TEMPERATURE=0.1
-QA_AGENT_TEMPERATURE=0.3
-MAX_TOKENS=2048
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FILE=./logs/system.log
+# The system will initialize databases automatically on first run
+# Ensure required directories exist
+mkdir -p data/processed data/vector_db logs
 ```
 
 ## Usage Instructions
 
+The system provides a unified command-line interface through `main.py` with several operational modes:
+
 ### Phase 1: Document Processing Pipeline
 
-#### Basic Document Processing
+#### Process Documents from Directory
 ```bash
-# Process single document
-python src/main.py --input-file path/to/document.pdf
+# Process all supported documents in a directory
+python main.py process --input-dir ./documents
 
-# Process multiple documents
-python src/main.py --input-dir ./data/input_documents
-
-# Process with specific options
-python src/main.py --input-file document.pdf --extract-tables --extract-images --verbose
+# Example with custom input directory
+python main.py process --input-dir /path/to/your/documents
 ```
 
-#### Advanced Processing Options
+#### Process Single Document
 ```bash
-# Batch processing with progress tracking
-python src/main.py --input-dir ./documents --batch-size 10 --progress-bar
+# Process a specific file
+python main.py process --file ./document.pdf
 
-# Process specific document types
-python src/main.py --input-dir ./docs --file-types pdf,docx --output-format json
-
-# Resume interrupted processing
-python src/main.py --input-dir ./docs --resume --checkpoint-file ./checkpoints/progress.json
+# Process a Word document
+python main.py process --file ./report.docx
 ```
 
 ### Phase 2: Question-Answering Interface
 
-#### Interactive Chat Mode
+#### Interactive CLI Mode
 ```bash
-# Start interactive session
-python src/chat.py
+# Start interactive question-answering session
+python main.py qa-cli --interactive
 
-# Example interaction:
-# > What were the key findings in the quarterly report?
-# > Show me data from Table 2 about revenue
-# > What does Figure 3 illustrate?
+# Alternative shorthand (default behavior when no command specified)
+python main.py
 ```
 
-#### Direct Query Mode
+#### Single Question Mode
 ```bash
-# Single query
-python src/chat.py --query "What was the total revenue in Q3?"
+# Ask a single question
+python main.py qa-cli --question "What are the main findings in the documents?"
 
-# Query with specific document scope
-python src/chat.py --query "Summarize the methodology section" --document "research_paper.pdf"
-
-# Batch queries from file
-python src/chat.py --query-file ./queries.txt --output-file ./responses.json
+# Ask question with output to file
+python main.py qa-cli --question "Summarize the revenue data" --output results.json
 ```
 
-#### Advanced Query Examples
+#### Web Interface
 ```bash
-# Table-specific queries
-python src/chat.py --query "What items in the product table have prices above $100?"
+# Start web interface (default port 8501)
+python main.py qa-web
 
-# Multi-document queries
-python src/chat.py --query "Compare revenue trends across all quarterly reports"
+# Start web interface on custom port and host
+python main.py qa-web --port 8080 --host 0.0.0.0
+```
 
-# Image-related queries
-python src/chat.py --query "What information is provided about Figure 2?"
+#### API Interface
+```bash
+# Start FastAPI server (default port 8000)
+python main.py qa-api
 
-# Complex analytical queries
-python src/chat.py --query "What are the main risks mentioned in the financial documents?"
+# Start API server on custom configuration
+python main.py qa-api --port 8080 --host 127.0.0.1
+```
+
+### Full Pipeline Operation
+
+#### Complete Workflow
+```bash
+# Process documents then start CLI interface
+python main.py pipeline --input-dir ./documents --qa-interface cli
+
+# Process documents then start web interface
+python main.py pipeline --input-dir ./documents --qa-interface web --port 8501
+
+# Process documents then start API server
+python main.py pipeline --input-dir ./documents --qa-interface api --port 8000
+```
+
+### Command Reference
+
+#### Available Commands
+- `process`: Document processing (Phase 1)
+- `qa-cli`: Command-line question answering interface (Phase 2)
+- `qa-web`: Web-based interface (Phase 2)
+- `qa-api`: RESTful API interface (Phase 2)  
+- `pipeline`: Full workflow - process documents then start QA system
+
+#### Global Options
+- `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR)
+
+### Usage Examples
+
+```bash
+# Complete workflow examples:
+
+# 1. Process documents and start interactive session
+python main.py process --input-dir ./research_papers
+python main.py qa-cli --interactive
+
+# 2. Full pipeline with web interface
+python main.py pipeline --input-dir ./financial_reports --qa-interface web
+
+# 3. Process single document and ask specific question
+python main.py process --file ./contract.pdf
+python main.py qa-cli --question "What are the key terms and conditions?"
+
+# 4. Start API server for integration
+python main.py qa-api --port 8000 --host 0.0.0.0
 ```
 
 ## Performance Characteristics & Metrics
@@ -395,70 +404,102 @@ python src/chat.py --query "What are the main risks mentioned in the financial d
 | **Feature Scope** | Core functionality | Comprehensive feature set | System simplicity and reliability vs. feature richness |
 | **Deployment** | Local/On-premise | Cloud-based services | Data privacy and cost control vs. scalability |
 
+## Directory Structure
+
+```
+advanced-agentic-document-intelligence/
+├── main.py                          # Unified entry point
+├── README.md                        # This file
+├── requirements.txt                 # Python dependencies
+├── .env.example                    # Environment configuration template
+├── src/                            # Source code
+│   ├── agents/                     # Agent implementations
+│   │   └── coordinator.py          # Document processing coordinator
+│   ├── interfaces/                 # User interfaces
+│   │   ├── cli_interface.py        # Command-line interface
+│   │   ├── web_interface.py        # Streamlit web interface
+│   │   └── api_interface.py        # FastAPI REST interface
+│   └── config/                     # Configuration
+│       └── settings.py             # Application settings
+├── data/                           # Data directories
+│   ├── processed/                  # Processed document storage
+│   └── vector_db/                  # Vector database files
+└── logs/                           # Application logs
+    └── agentic_system.log          # Main log file
+```
 
 ## Testing & Validation
 
-### Test Dataset Information
-- **Source**: Provided Google Drive dataset with complex documents
-- **Coverage**: Academic papers, financial reports, technical documentation
-- **Validation Metrics**: Extraction accuracy, query response quality, processing performance
-
-### Quality Assurance Process
+### Running Tests
 ```bash
-# Run complete test suite
-python -m pytest tests/ -v --coverage
+# Verify system setup
+python -c "from src.config.settings import settings; print('Configuration loaded successfully')"
 
-# Performance benchmarking
-python scripts/benchmark.py --dataset ./test_data --iterations 10
+# Test document processing
+python main.py process --file path/to/test/document.pdf
 
-# Accuracy validation against ground truth
-python scripts/validate_extraction.py --ground-truth ./validation/ground_truth.json
-
-# End-to-end system testing
-python scripts/e2e_test.py --test-documents ./test_docs
+# Test QA functionality
+python main.py qa-cli --question "Test query to verify system functionality"
 ```
 
-### Validation Results Summary
-- **Text Extraction Accuracy**: 94.2% on test dataset
-- **Table Detection Rate**: 87.5% for standard tables
-- **Query Response Quality**: 82.3% user satisfaction rating
-- **Processing Speed**: Average 3.2 documents per minute
+### Validation Process
+1. **Document Processing Validation**: Process sample documents and verify extraction quality
+2. **Knowledge Base Verification**: Confirm data storage and retrieval functionality  
+3. **QA System Testing**: Test various question types and complexity levels
+4. **Interface Testing**: Verify all interfaces (CLI, Web, API) function correctly
 
 ## Dependencies & Requirements
 
-### Python Dependencies (requirements.txt)
+### Core Dependencies
 ```
 # Document Processing
-docling>=1.0.0              # Advanced document layout analysis
-PyMuPDF>=1.23.0            # PDF processing and text extraction
-python-docx>=0.8.11        # DOCX document processing
-layoutparser>=0.3.4        # Layout analysis utilities
-tabula-py>=2.8.0          # Table extraction from PDFs
-camelot-py[cv]>=0.10.0    # Advanced table detection
-Pillow>=10.0.0            # Image processing
-opencv-python>=4.8.0      # Computer vision utilities
+PyMuPDF>=1.23.0                    # PDF processing
+python-docx>=0.8.11                # DOCX processing
 
 # Agent Framework & LLM
-langchain>=0.1.0          # Multi-agent orchestration framework
-langchain-community>=0.0.10  # Community integrations
+langchain>=0.1.0                    # Multi-agent framework
+langchain-community>=0.0.10         # Community integrations
 
-# Vector Database & Embeddings
-chromadb>=0.4.0           # Vector database for semantic search
-sentence-transformers>=2.2.2  # Text embeddings
+# Vector Database & Embeddings  
+chromadb>=0.4.0                     # Vector database
+sentence-transformers>=2.2.2        # Text embeddings
 
 # Data Storage & Processing
-sqlalchemy>=2.0.0         # Database ORM
-pandas>=2.0.0             # Data manipulation
-numpy>=1.24.0             # Numerical processing
+sqlalchemy>=2.0.0                   # Database ORM
+pandas>=2.0.0                       # Data manipulation
+numpy>=1.24.0                       # Numerical processing
+
+# Web Interface (optional)
+streamlit>=1.28.0                   # Web interface framework
+
+# API Interface (optional)
+fastapi>=0.104.0                    # REST API framework
+uvicorn>=0.24.0                     # ASGI server
 
 # Utilities
-python-dotenv>=1.0.0      # Environment configuration
-pydantic>=2.0.0           # Data validation
-tqdm>=4.65.0              # Progress bars
+python-dotenv>=1.0.0                # Environment configuration  
+pydantic>=2.0.0                     # Data validation
+tqdm>=4.65.0                        # Progress bars
+pathlib                             # Path handling (built-in)
+argparse                            # CLI argument parsing (built-in)
+logging                             # Logging (built-in)
 ```
 
 ### External Dependencies
-- **Ollama**: Local LLM deployment platform
+- **Ollama**: Local LLM deployment platform (https://ollama.ai)
 - **SQLite**: Embedded database (included with Python)
 - **Git**: Version control (for repository management)
 
+## Support & Troubleshooting
+
+### Common Issues
+
+1. **Import Errors**: Ensure all dependencies are installed in the virtual environment
+2. **Ollama Connection**: Verify Ollama is running (`ollama serve`) and models are pulled
+3. **Memory Issues**: Reduce batch size or process documents individually for large files
+4. **Port Conflicts**: Use different ports for web/API interfaces if default ports are occupied
+
+### Getting Help
+- Check logs in `./logs/agentic_system.log` for detailed error information
+- Verify system requirements and dependencies
+- Ensure proper directory structure and permissions
